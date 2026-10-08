@@ -1,5 +1,5 @@
 # PSI Suite - Python Web Service
-Servicio web de Flask que levanata un nodo y expone una API REST y una interfaz gráfica con el objetivo de probar diferentes criptosistemas y protocolos para calcular PSI (Private Set Intersection) o conjuntos de intersecciones privados.
+Servicio web de Flask que levanata un nodo y expone una API REST y una interfaz gráfica con el objetivo de probar diferentes criptosistemas y protocolos para calcular PSI (Private Set Intersection) o conjuntos de intersecciones privados. Así como realizar Intercambios de Clave
 
 ## Requisitos
 * **Python 3.11**
@@ -12,7 +12,7 @@ El sistema ha demostrado funcionar en sistemas ARM y x86. Se ha probado su funci
 
 Para arrancar el servicio se pueden seguir estos pasos:
 
-1. Clonar el repositorio: `git clone https://github.com/4rius/WS_PSI.git`. También se puede clonar utilizando el soporte gráfico de GitHub Desktop.
+1. Clonar el repositorio: `git clone https://github.com/uo276976/WS_PSI.git`. También se puede clonar utilizando el soporte gráfico de GitHub Desktop.
 2. Navegar a la carpeta del proyecto: `cd WS_PSI`.
 3. Instalar las dependencias, por conveniencia se puede utilizar un entorno virtual de Python:
     1. Crear un entorno virtual: `python -m venv WS-PSI-ENV` en Windows o `python3 -m venv WS-PSI-ENV` en Linux. En sistemas UNIX se recomienda comprobar que `python3` es una versión 3.11, esto se puede hacer con `python3 --version`. Si no fuera así, se puede instalar y evitar actualizar variables haciendo `python3.11 -m venv WS-PSI-ENV`.
@@ -28,14 +28,31 @@ Por conveniencia, existe un archivo `setup.sh` que realiza todos estos pasos (pa
 ![waitressdefault.png](docs/waitressdefault.png) \
 Se recomienda usar `waitress` para evaluar las implementaciones, ya que es más rápido y seguro que el servidor de desarrollo de Flask. Simula mejor lo que sería el rendimiento del sistema en producción.
 
-**Servidor por defecto**\
-La API REST quedará expuesta en la dirección `http://127.0.0.1:5000/api` y la interfaz gráfica en `http://127.0.0.1:5000/`. \
-Se puede modificar el puerto y la dirección de la API en el arranque del servidor. Ejemplo: `flask --app flaskr:create_app run --port=8000`. La dirección cambiaría con `--host=OTRA_DIRECCION` aunque puede que no se pueda asignar.\
-**Servidor `waitress`**\
-La API REST quedará expuesta en la dirección `http://127.0.0.1:8080/api` y la interfaz gráfica en `http://127.0.0.1:8080/`. \
-Se puede modificar el puerto y la dirección de la API en el arranque del servidor. Ejemplo: `waitress-serve --host 127.0.0.1 --port 8000 --call flaskr:create_app`\
+## Activar Criptografía post-cuántica 
+Ejecutar el instalador de PQC
 
-El nodo por defecto empezará a escuchar en el puerto 5001, pero se puede cambiar mediante la API. Siempre correrá en la IP local para que otros usuarios de la red local puedan conectarse a él. Este comportamiento es *modificable* por si se quisiera exponer a internet, pero **no está parametrizado**.
+Ejecuta el script de instalación:
+
+chmod +x setup_pqc.sh
+./setup_pqc.sh
+
+
+Este script realiza automáticamente los siguientes pasos:
+
+ - Instala dependencias necesarias del sistema.
+ - Clona y compila liboqs con soporte para algoritmos post-cuánticos.
+ - Instala liboqs-python, la interfaz de Python para liboqs.
+ - Configura la variable LD_LIBRARY_PATH (necesaria para que Python encuentre liboqs).
+ - Verifica que los algoritmos estén disponibles.
+
+**Servidor por defecto**\
+El proyecto utiliza un servidor Flask ejecutado mediante Waitress en cada nodo. Por defecto, cada contenedor expone su API REST en el puerto interno 5000, mientras que el puerto externo asignado depende del nodo definido en el archivo docker-compose.yml. De este modo, por ejemplo, un nodo Workstation puede estar accesible externamente en http://127.0.0.1:5002/api, mientras que un nodo Android puede hacerlo en http://127.0.0.1:5006/api. La interfaz web de cada servicio se encuentra disponible en la misma dirección sin el sufijo /api.
+
+El sistema permite cambiar el puerto interno o externo ajustando las variables definidas en los archivos de composición. Internamente, Flask y Waitress escuchan en el puerto 5000 dentro del contenedor, pero cualquier puerto puede ser redirigido al exterior mediante la sección ports: del docker-compose. Esto permite, por ejemplo, ejecutar múltiples nodos en paralelo en la misma máquina sin que haya conflictos de puertos. El comportamiento de escucha sobre la IP local está preparado para facilitar que otros dispositivos de la misma red puedan conectarse al nodo, aunque en su configuración actual no está pensado para exposición directa a Internet.
+
+Para entornos donde se añadan más nodos, simplemente deben asignarse puertos adicionales en la forma 50XX:5000, y realizarse el correspondiente port forwarding local. Por ejemplo, si se añaden nuevos nodos, será suficiente con mapear los rangos 5000–5010 (o el rango que corresponda con la cantidad de nodos definidos) hacia localhost:50XX. Este mecanismo asegura que cada nodo quede accesible a través de su propio puerto externo sin interferir con el resto del sistema.
+
+Si deseas modificar manualmente la dirección y el puerto, es posible arrancar los servicios Flask o Waitress directamente especificando los parámetros correspondientes. Por ejemplo, Flask puede iniciarse con flask run --port 8000 y Waitress con waitress-serve --host 127.0.0.1 --port 8000 --call flaskr:create_app. Estas variantes son útiles para pruebas locales fuera del entorno Docker.
 
 ## Autenticación mediante archivo de credenciales
 
@@ -71,13 +88,12 @@ Cada petición tiene una descripción detallada de lo que hace y qué espera rec
 ![PostmanDocs.png](docs/PostmanDocs.png)
 
 ## Despliegue Docker
-El código proporcionado contiene todo lo necesario para crear una imagen de Docker y levantar servicios independientes en la misma máquina utilizando Waitress.
-Para crear la imagen es necesario contar con el demonio de Docker que haya disponible para la máquina en que se esté trabajando.
-- Ir a la raíz del repositorio y ejecutar el comando `docker build -t ws-psi .`
--  Una vez creada la imagen, en el mismo directorio, se puede ejecutar `docker compose up`
-El archivo `docker-compose.yml` está configurado para crear 4 servicios bajo la misma red de Docker, luego estos se podrán conectar entre ellos como si se tratase de una red de área local.
-Para parar el servicio se puede mandar el comando `docker compose down` o utilizar el atajo `CTRL + C`.
-Para eliminar los contenedores y que no consuman recursos, se puede utilizar el comando `docker rm $(docker ps -aq)`.
+El proyecto incluye toda la infraestructura necesaria para construir una imagen Docker y desplegar distintos nodos simulados que representan varios tipos de dispositivos (Workstation, Android e IoT). El sistema también dispone de un modo adicional denominado UNIQUE, en el que todo el procesamiento se realiza dentro de un único contenedor con el fin de obtener mediciones óptimas sin latencias ni restricciones artificiales.
+Para construir la imagen es necesario disponer del demonio de Docker en ejecución. Desde la raíz del repositorio puede generarse la imagen del sistema mediante el comando docker build -t ws-psi .. El Dockerfile se encarga de compilar liboqs, instalar liboqs-python y configurar las dependencias criptográficas y de sistema necesarias, además de incluir el servidor Waitress que ejecuta la API de cada nodo.
+Una vez creada la imagen, el sistema puede desplegarse mediante el archivo docker-compose.yml, que levanta seis contenedores independientes bajo una misma red interna de Docker. Cada uno de ellos simula un entorno distinto asignando diferentes restricciones de CPU y memoria: dos nodos equivalentes a estaciones de trabajo, dos nodos de tipo IoT con recursos muy limitados y dos nodos que simulan dispositivos Android. Al ejecutarse todos dentro de la misma red virtual, se comportan como si estuvieran conectados en una red de área local, pudiendo intercambiar mensajes y ejecutar los protocolos sin configuración adicional. Para iniciar el despliegue basta con ejecutar docker compose up en el mismo directorio del archivo.
+El proyecto ofrece además un modo de ejecución alternativo a través del archivo docker-compose.unique.yml. En este caso se crea un único contenedor que reúne todas las funcionalidades y realiza todo el procesamiento de manera centralizada. Este modo sirve para obtener mediciones de referencia sin las limitaciones derivadas de la simulación de dispositivos con recursos restringidos, y sin el coste adicional introducido por la comunicación entre nodos independientes. Puede iniciarse mediante docker compose -f docker-compose.unique.yml up.
+En cualquier momento es posible detener la ejecución mediante docker compose down. Si se desea eliminar los contenedores para liberar recursos, puede utilizarse el comando docker rm $(docker ps -aq), teniendo en cuenta que este eliminará todos los contenedores existentes en la máquina, no únicamente los asociados al proyecto.
+Todos los servicios se ejecutan mediante Waitress, que se inicia automáticamente a través del script dockerstart.sh incluido en cada contenedor. El servidor Flask asociado a cada nodo se expone siempre en el puerto interno 5000, mientras que el puerto externo asignado depende del nodo que se esté ejecutando.
 
 ## Licencia
 Este proyecto está distribuido bajo la licencia MIT. Para más información, consultar el archivo [LICENSE](LICENSE).

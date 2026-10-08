@@ -1,0 +1,28 @@
+x-build: &default-build
+  context: .
+  dockerfile: Dockerfile
+
+services: 
+  unique-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: ws-psi:latest
+    container_name: ws-psi-unique
+    ports:
+      - "5002:5000"
+    networks:
+      - container_network
+    environment:
+      - PORT=5000
+      - EXTERNAL_PORT=5002
+      - DEVICE_TYPE=UNIQUE
+      - BENCHMARK_MODE=true
+      - UNIQUE_NODE_MODE=true
+    volumes:
+      - ./FirebaseCredentials.json:/app/FirebaseCredentials.json
+    restart: unless-stopped
+
+networks:
+  container_network: {}

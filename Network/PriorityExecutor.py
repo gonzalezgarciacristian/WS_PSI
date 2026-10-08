@@ -1,55 +1,88 @@
+import os
 import threading
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor
-from queue import PriorityQueue
+from queue import PriorityQueue, Full, Empty
+
+# Set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
-# Wrappear el Future en un PrioritizedItem para que pueda ser ordenado por la cola de prioridad
 class PrioritizedItem:
     def __init__(self, priority, item):
         self.priority = priority
         self.item = item
 
     def __lt__(self, other):
-        return self.priority > other.priority
+        return self.priority < other.priority
 
 
-# Solo funciona cuando se mandan tareas de distintas prioridades a la vez, si entran 1000 iguales seguidas,
-# estas quedarán en la cola del ThreadPoolExecutor real
 class PriorityExecutor:
-    def __init__(self, max_workers):
-        self.max_workers = max_workers
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+    def __init__(self, max_workers=None):
+        # Benchmark Mode Setup
+        benchmark_mode = os.getenv("BENCHMARK_MODE", "false").lower() == "true"
+        self.benchmark_mode = benchmark_mode
+
+        # Use 1 worker for benchmark mode, else default 2
+        self.max_workers = 1 if benchmark_mode else (max_workers or 2)
+
+        self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
         self.queue = PriorityQueue()
-        self.max_tasks_in_queue = 10
-        self.tasks_in_progress = 0  # Max should be max_workers + max_tasks_in_queue
-        self._start_thread()  # Iniciamos el hilo que coge tareas de la cola de prioridad y las ejecuta
+        self.max_tasks_in_queue = 3500
+        self.tasks_in_progress = 0
+        self._lock = threading.Lock()
+        self._shutdown_flag = False
+        self._start_thread()
+
+        mode = "BENCHMARK" if benchmark_mode else "NORMAL"
+        logger.info(f"[PriorityExecutor] Initialized in {mode} mode with {self.max_workers} workers")
 
     def _start_thread(self):
-        def function():
-            while True:
-                # De esta forma podemos evitar que la cola se llene de tareas de la misma prioridad
-                # Dejamos 10 tareas en la cola para mejorar la eficiencia
-                if not self.queue.empty() and self.tasks_in_progress < self.max_tasks_in_queue + self.max_workers:
-                    prioritized_item = self.queue.get()  # Obtiene el elemento de mayor prioridad de la cola
-                    if prioritized_item is not None:
-                        # Ejecuta la tarea
-                        func, args, kwargs = prioritized_item.item
-                        future = self.executor.submit(func, *args, **kwargs)
+        def run():
+            while not self._shutdown_flag:
+                try:
+                    prioritized_item = self.queue.get(timeout=0.1)
+                    func, args, kwargs = prioritized_item.item
+                    with self._lock:
                         self.tasks_in_progress += 1
-                        # Marcar la tarea como completada y liberar espacio en la cola
-                        future.add_done_callback(lambda x: self.task_done())
-                        self.queue.task_done()
-                else:
-                    # Si la cola está vacía, esperamos un tiempo para no consumir CPU
+
+                    future = self.executor.submit(func, *args, **kwargs)
+                    future.add_done_callback(lambda _: self.task_done())
+                    self.queue.task_done()
+
+                except Empty:
+                    continue
+                except Exception as e:
+                    logger.error(f"[PriorityExecutor] Error in run loop: {e}")
                     time.sleep(0.1)
 
-        threading.Thread(target=function).start()
+        threading.Thread(target=run, daemon=True).start()
 
-    # Para enviar las tareas al ejecutor
     def submit(self, priority, func, *args, **kwargs):
-        # Se añade la tarea a la cola de prioridad
-        self.queue.put(PrioritizedItem(priority, (func, args, kwargs)))
+        try:
+            item = PrioritizedItem(priority, (func, args, kwargs))
+            self.queue.put_nowait(item)
+            logger.debug(f"[PriorityExecutor] Task submitted: {func.__name__} (priority {priority})")
+        except Full:
+            logger.warning(f"[PriorityExecutor] Queue full - Task dropped: {func.__name__}")
 
     def task_done(self):
-        self.tasks_in_progress -= 1
+        with self._lock:
+            self.tasks_in_progress -= 1
+            logger.debug(f"[PriorityExecutor] Task completed. In progress: {self.tasks_in_progress}")
+
+    def get_status(self):
+        with self._lock:
+            return {
+                "in_queue": self.queue.qsize(),
+                "in_progress": self.tasks_in_progress,
+                "max_workers": self.max_workers,
+                "max_tasks_in_queue": self.max_tasks_in_queue
+            }
+
+    def shutdown(self):
+        self._shutdown_flag = True
+        self.executor.shutdown(wait=True)
+        logger.info("[PriorityExecutor] Shutdown complete")

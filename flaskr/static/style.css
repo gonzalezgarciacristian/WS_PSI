@@ -1,46 +1,179 @@
+/* Global */
 body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: #fafafa;
+  overflow-x: hidden;
 }
-button {
-    margin: 5px;
+html { font-size: 16px; }
+
+/* Header */
+.main-header {
+  padding: 0.8rem;
 }
-#disconnect {
-    background-color: red;
-    color: white;
+.dashboard-title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 500;
 }
-.red {
-    background-color: red;
-    color: white;
+
+/* Layout */
+.main-layout {
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 64px);
 }
-table {
-    width: 50%;
-    margin: 20px auto;
-}
-button {
-    margin: 5px;
-}
+
+/* Sidebar */
 .left-menu {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 225px;
-        height: 100%;
-        background-color: #f8f9fa;
-        padding: 20px;
-        overflow: auto;
+  width: 260px;
+  padding: 1rem;
+  border-right: 1px solid #ddd;
+  background-color: #f7f7f7;
+  transition: transform 0.3s ease-in-out;
 }
+.left-menu h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+.left-menu .btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+.left-menu .details {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Collapsible sidebar */
+#menu-btn {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1001;
+  display: none;
+}
+#menu-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+#menu-overlay.visible {
+  opacity: 1; visibility: visible;
+}
+@media (max-width: 992px) {
+  #menu-btn { display: flex; align-items: center; justify-content: center; }
+  .left-menu {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100%;
+    transform: translateX(-100%);
+    z-index: 1002;
+    width: 80%;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.4);
+  }
+  .left-menu.open {
+    transform: translateX(0);
+  }
+}
+
+/* Main content */
 .content {
-    margin-left: 220px;
-    padding: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+  flex: 1;
+  padding: 1rem 2rem;
+  max-width: 100%;
 }
-.details {
-    text-align: center;
-    font-style: italic;
+.content-section h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+.info-intro {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  background: #fff;
+  border: 1px dashed #cfd8dc;
+  border-radius: 8px;
+}
+
+/* Device grid */
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  justify-items: center;
+  align-items: start;
+  width: 100%;
+}
+
+/* Card styling */
+.card {
+  width: 100%;
+  min-height: 230px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+.card .card-title {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+.card .scheme-selector {
+  font-size: 1rem;
+}
+
+/* Buttons inside cards */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.btn-small {
+  font-size: 0.9rem;
+  padding: 0 0.8rem;
+}
+
+/* Adjust select and start button */
+.input-field.flex-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.input-field.flex-row select {
+  flex: 1;
+  height: 2.5rem;
+  font-size: 0.95rem;
+}
+.input-field.flex-row button {
+  height: 2.5rem;
+}
+
+/* Device colors */
+.iot-device { border-left: 5px solid #4CAF50; }
+.android-device { border-left: 5px solid #FF9800; }
+.ws-device { border-left: 5px solid #2196F3; }
+.unique-device {border-left: 5px solid #9467bd; }
+
+/* Small devices */
+@media (max-width: 600px) {
+  html { font-size: 15px; }
+  .content {
+    padding: 1rem;
+  }
+  .card {
+    min-height: 210px;
+  }
 }
